@@ -1,0 +1,23 @@
+# Executables
+graph_project
+*.out
+
+# Object files
+*.o
+
+# Debug files
+*.gdb
+core
+
+# Build folders
+build/
+
+# VS Code
+.vscode/
+
+# CLion / JetBrains
+.idea/
+
+# Temporary files
+*~
+*.swp
