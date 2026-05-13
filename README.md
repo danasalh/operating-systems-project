@@ -56,7 +56,7 @@ operating-systems-project/
 
 This project requires:
 
-### Linux / Ubuntu
+### Linux 
 
 Install required packages:
 
