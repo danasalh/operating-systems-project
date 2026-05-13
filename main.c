@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "graph.h"
 #include "dijkstra.h"
+#include "GUI/gui.h"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -97,6 +98,9 @@ int main(int argc, char* argv[]) {
 
         printf("\n%d\n", totalWeight);
     }
+
+    drawGraph(graph);
+
 
     free(path);
     freeGraph(graph);
