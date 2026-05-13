@@ -7,7 +7,7 @@
 
 ---
 
-## Project Description
+##  Description
 
 This project implements a **directed weighted graph system** in C.
 
@@ -28,7 +28,7 @@ The graph supports:
 
 ---
 
-## Project Structure
+##  Structure
 
 ```bash
 operating-systems-project/
