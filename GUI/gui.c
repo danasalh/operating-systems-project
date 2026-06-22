@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <unistd.h>
+#include  "../traveler.h" 
 
 #define SCREEN_WIDTH 900
 #define SCREEN_HEIGHT 700
@@ -98,14 +99,24 @@ static void readTravelerMessages(Traveler* travelers, int numTravelers) {
             travelers[i].currentNode = msg.currentNode;
             travelers[i].nextNode = msg.nextNode;
             travelers[i].finished = msg.finished;
+            travelers[i].waiting = msg.waiting;
 
-            if (msg.finished) {
+            if (msg.waiting) {
+                printf("[PID=%d] waiting for node %d\n",
+                       msg.pid,
+                       msg.currentNode);
+            }
+            else if (msg.finished) {
                 printf("[PID=%d] arrived at node %d | DESTINATION\n",
-                       msg.pid, msg.currentNode);
+                       msg.pid,
+                       msg.currentNode);
                 printf("[PID=%d] finished\n", msg.pid);
-            } else {
+            }
+            else {
                 printf("[PID=%d] arrived at node %d | next node: %d\n",
-                       msg.pid, msg.currentNode, msg.nextNode);
+                       msg.pid,
+                       msg.currentNode,
+                       msg.nextNode);
             }
 
             fflush(stdout);
@@ -121,8 +132,14 @@ static void drawTravelers(Traveler* travelers, int numTravelers, Vector2 positio
             continue;
         }
 
-        Color color = travelerColors[i % 8];
-        Vector2 pos = positions[node];
+       Color color;
+
+       if (travelers[i].waiting) {
+         color = YELLOW;
+                 }
+        else {
+        color = travelerColors[i % 8];
+       }        Vector2 pos = positions[node];
 
         DrawCircleV(pos, 13, color);
 
@@ -133,7 +150,7 @@ static void drawTravelers(Traveler* travelers, int numTravelers, Vector2 positio
 }
 
 void drawGraph(Graph* graph, Traveler* travelers, int numTravelers) {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Milestone 5 - IPC Graph Simulation");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT,  "Milestone 6 - Synchronization");
     SetTargetFPS(60);
 
     int n = graph->numVertices;
@@ -147,7 +164,7 @@ void drawGraph(Graph* graph, Traveler* travelers, int numTravelers) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        DrawText("Directed Weighted Graph - Milestone 5", 20, 20, 24, DARKBLUE);
+        DrawText("Directed Weighted Graph - Milestone 6", 20, 20, 24, DARKBLUE);
 
         drawEdges(graph, positions, n);
         drawNodes(positions, n);
