@@ -1,16 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+
 #include "graph.h"
 #include "dijkstra.h"
 #include "GUI/gui.h"
+#include "traveler.h"
 
-typedef struct {
-    int source;
-    int destination;
-    int* path;
-    int pathLength;
-    int totalWeight;
-} Traveler;
 
 static Graph* readGraphFromFile(FILE* file) {
     int numVertices, numEdges;
@@ -81,6 +79,7 @@ static Traveler* readTravelersFromFile(FILE* file, int numVertices, int* numTrav
         travelers[i].path = NULL;
         travelers[i].pathLength = 0;
         travelers[i].totalWeight = INF;
+        travelers[i].pid = -1;
     }
 
     return travelers;
@@ -126,6 +125,46 @@ static void printTravelerPaths(Traveler* travelers, int numTravelers) {
         }
 
         printf("\n%d\n", travelers[i].totalWeight);
+    }
+}
+
+static int createChildProcesses(Traveler* travelers, int numTravelers) {
+    for (int i = 0; i < numTravelers; i++) {
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("fork failed");
+            return 0;
+        }
+
+        if (pid == 0) {
+            printf("[%d] started\n", getpid());
+            fflush(stdout);
+
+            while (1) {
+                pause();
+            }
+
+            exit(0);
+        }
+
+        travelers[i].pid = pid;
+    }
+
+    return 1;
+}
+
+static void terminateChildProcesses(Traveler* travelers, int numTravelers) {
+    for (int i = 0; i < numTravelers; i++) {
+        if (travelers[i].pid > 0) {
+            kill(travelers[i].pid, SIGTERM);
+        }
+    }
+
+    for (int i = 0; i < numTravelers; i++) {
+        if (travelers[i].pid > 0) {
+            waitpid(travelers[i].pid, NULL, 0);
+        }
     }
 }
 
@@ -180,7 +219,16 @@ int main(int argc, char* argv[]) {
 
     printTravelerPaths(travelers, numTravelers);
 
-    drawGraph(graph);
+    if (!createChildProcesses(travelers, numTravelers)) {
+        terminateChildProcesses(travelers, numTravelers);
+        freeTravelers(travelers, numTravelers);
+        freeGraph(graph);
+        return 1;
+    }
+
+    drawGraph(graph, travelers, numTravelers);
+
+    terminateChildProcesses(travelers, numTravelers);
 
     freeTravelers(travelers, numTravelers);
     freeGraph(graph);
