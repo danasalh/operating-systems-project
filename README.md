@@ -123,6 +123,70 @@ No memory leaks detected
 
 Implemented graphical visualization using **Raylib**.
 
+
+## Milestone 4
+
+Implemented support for multiple travelers using operating system processes.
+
+### Features
+
+- Support for multiple travelers in a single input file
+- Added `Traveler` structure to store traveler information
+- Shortest path computation for each traveler using Dijkstra's algorithm
+- Created a separate process for each traveler using `fork()`
+- Parent process manages all travelers
+- Child processes are created and identified by their PID
+- Graphical visualization of multiple travelers
+- Each traveler is displayed in a different color
+- Travelers move along their shortest path in the graph
+- Memory management and cleanup for all travelers and processes
+
+### Input Format
+
+Example:
+
+```text
+6 8
+0 1 4
+0 2 2
+1 3 5
+2 1 1
+2 3 8
+3 4 2
+4 5 3
+2 5 10
+
+3
+0 5
+1 4
+2 3
+```
+
+Where:
+
+- First line: number of vertices and edges
+- Following lines: graph edges and weights
+- Last section:
+  - number of travelers
+  - source and destination for each traveler
+
+### Build and Run
+
+```bash
+make milestone4
+./sim tests/test7.txt
+```
+
+### GUI Features
+
+- Directed weighted graph visualization
+- Automatic node placement
+- Edge weight display
+- Multiple travelers displayed simultaneously
+- Different color for each traveler
+- Traveler movement animation along shortest paths
+
+
 ### Features
 
 - Static graph visualization

@@ -1,5 +1,7 @@
 # Executables
 graph_project
+sim
+
 *.out
 
 # Object files
