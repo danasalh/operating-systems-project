@@ -124,6 +124,28 @@ No memory leaks detected
 Implemented graphical visualization using **Raylib**.
 
 
+
+
+
+### Features
+
+- Static graph visualization
+- Automatic circular vertex placement
+- Directed edges with arrow heads
+- Edge weights display
+- Vertex labels
+
+### GUI Design
+
+The graph is displayed using:
+
+- Blue nodes
+- Gray directed edges
+- Red edge weights
+
+---
+
+
 ## Milestone 4
 
 Implemented support for multiple travelers using operating system processes.
@@ -185,22 +207,3 @@ make milestone4
 - Multiple travelers displayed simultaneously
 - Different color for each traveler
 - Traveler movement animation along shortest paths
-
-
-### Features
-
-- Static graph visualization
-- Automatic circular vertex placement
-- Directed edges with arrow heads
-- Edge weights display
-- Vertex labels
-
-### GUI Design
-
-The graph is displayed using:
-
-- Blue nodes
-- Gray directed edges
-- Red edge weights
-
----
