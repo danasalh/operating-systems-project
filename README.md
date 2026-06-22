@@ -207,3 +207,44 @@ make milestone4
 - Multiple travelers displayed simultaneously
 - Different color for each traveler
 - Traveler movement animation along shortest paths
+
+
+
+## Milestone 5
+
+### Implementation
+
+In this milestone, inter-process communication (IPC) was implemented using pipes.
+
+Each traveler is represented by a child process created using `fork()`. After creation, every child independently computes its shortest path using the Dijkstra algorithm.
+
+A dedicated pipe is created between the parent process and each child process. The child sends progress updates to the parent while traversing its route. These updates include the current node, the next node, and a completion flag indicating whether the destination has been reached.
+
+The GUI displays all travelers simultaneously on the directed weighted graph while the IPC communication is running in the background.
+
+### Features
+
+* Multiple traveler processes using `fork()`
+* IPC communication using pipes
+* Independent Dijkstra computation by each child process
+* Real-time status messages from child processes to the parent
+* PID-based logging
+* Directed weighted graph visualization
+* Multiple travelers displayed simultaneously
+
+### Build & Run
+
+```bash
+make milestone5
+./sim tests/test7.txt
+```
+
+### Example Output
+
+```text
+[PID=503645] arrived at node 0 | next node: 2
+[PID=503646] arrived at node 1 | next node: 3
+[PID=503647] arrived at node 2 | next node: 1
+[PID=503645] arrived at node 5 | DESTINATION
+[PID=503645] finished
+```

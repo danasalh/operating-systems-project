@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <signal.h>
+#include <fcntl.h>
 
 #include "graph.h"
 #include "dijkstra.h"
-#include "GUI/gui.h"
 #include "traveler.h"
-
+#include "ipc.h"
+#include "GUI/gui.h"
 
 static Graph* readGraphFromFile(FILE* file) {
     int numVertices, numEdges;
@@ -80,56 +80,73 @@ static Traveler* readTravelersFromFile(FILE* file, int numVertices, int* numTrav
         travelers[i].pathLength = 0;
         travelers[i].totalWeight = INF;
         travelers[i].pid = -1;
+        travelers[i].pipeFd[0] = -1;
+        travelers[i].pipeFd[1] = -1;
+        travelers[i].currentNode = source;
+        travelers[i].nextNode = destination;
+        travelers[i].finished = 0;
     }
 
     return travelers;
 }
 
-static int computeTravelerPaths(Graph* graph, Traveler* travelers, int numTravelers) {
+static void sendMessage(int fd, int index, int current, int next, int finished) {
+    TravelerMessage msg;
+
+    msg.pid = getpid();
+    msg.travelerIndex = index;
+    msg.currentNode = current;
+    msg.nextNode = next;
+    msg.finished = finished;
+
+    write(fd, &msg, sizeof(TravelerMessage));
+}
+
+static void childProcess(Graph* graph, Traveler traveler, int index, int writeFd) {
+    int* path = malloc(graph->numVertices * sizeof(int));
+    if (path == NULL) {
+        close(writeFd);
+        exit(1);
+    }
+
+    int pathLength = 0;
+    int totalWeight = dijkstra(
+        graph,
+        traveler.source,
+        traveler.destination,
+        path,
+        &pathLength
+    );
+
+    if (totalWeight == INF || pathLength == 0) {
+        sendMessage(writeFd, index, traveler.source, -1, 1);
+        free(path);
+        close(writeFd);
+        exit(0);
+    }
+
+    for (int i = 0; i < pathLength; i++) {
+        int current = path[i];
+        int next = (i < pathLength - 1) ? path[i + 1] : -1;
+        int finished = (i == pathLength - 1);
+
+        sendMessage(writeFd, index, current, next, finished);
+
+        sleep(1);
+    }
+
+    free(path);
+    close(writeFd);
+    exit(0);
+}
+
+static int createChildProcesses(Graph* graph, Traveler* travelers, int numTravelers) {
     for (int i = 0; i < numTravelers; i++) {
-        travelers[i].path = malloc(graph->numVertices * sizeof(int));
-        if (travelers[i].path == NULL) {
+        if (pipe(travelers[i].pipeFd) == -1) {
+            perror("pipe failed");
             return 0;
         }
 
-        travelers[i].totalWeight = dijkstra(
-            graph,
-            travelers[i].source,
-            travelers[i].destination,
-            travelers[i].path,
-            &travelers[i].pathLength
-        );
-    }
-
-    return 1;
-}
-
-static void printTravelerPaths(Traveler* travelers, int numTravelers) {
-    for (int i = 0; i < numTravelers; i++) {
-        printf("Traveler %d: %d -> %d\n",
-               i,
-               travelers[i].source,
-               travelers[i].destination);
-
-        if (travelers[i].totalWeight == INF) {
-            printf("No path found\n");
-            continue;
-        }
-
-        for (int j = 0; j < travelers[i].pathLength; j++) {
-            printf("%d", travelers[i].path[j]);
-
-            if (j < travelers[i].pathLength - 1) {
-                printf(" -> ");
-            }
-        }
-
-        printf("\n%d\n", travelers[i].totalWeight);
-    }
-}
-
-static int createChildProcesses(Traveler* travelers, int numTravelers) {
-    for (int i = 0; i < numTravelers; i++) {
         pid_t pid = fork();
 
         if (pid < 0) {
@@ -138,29 +155,22 @@ static int createChildProcesses(Traveler* travelers, int numTravelers) {
         }
 
         if (pid == 0) {
-            printf("[%d] started\n", getpid());
-            fflush(stdout);
-
-            while (1) {
-                pause();
-            }
-
-            exit(0);
+            close(travelers[i].pipeFd[0]);
+            childProcess(graph, travelers[i], i, travelers[i].pipeFd[1]);
         }
 
         travelers[i].pid = pid;
+
+        close(travelers[i].pipeFd[1]);
+
+        int flags = fcntl(travelers[i].pipeFd[0], F_GETFL, 0);
+        fcntl(travelers[i].pipeFd[0], F_SETFL, flags | O_NONBLOCK);
     }
 
     return 1;
 }
 
-static void terminateChildProcesses(Traveler* travelers, int numTravelers) {
-    for (int i = 0; i < numTravelers; i++) {
-        if (travelers[i].pid > 0) {
-            kill(travelers[i].pid, SIGTERM);
-        }
-    }
-
+static void waitForChildren(Traveler* travelers, int numTravelers) {
     for (int i = 0; i < numTravelers; i++) {
         if (travelers[i].pid > 0) {
             waitpid(travelers[i].pid, NULL, 0);
@@ -175,6 +185,10 @@ static void freeTravelers(Traveler* travelers, int numTravelers) {
 
     for (int i = 0; i < numTravelers; i++) {
         free(travelers[i].path);
+
+        if (travelers[i].pipeFd[0] != -1) {
+            close(travelers[i].pipeFd[0]);
+        }
     }
 
     free(travelers);
@@ -210,17 +224,7 @@ int main(int argc, char* argv[]) {
 
     fclose(file);
 
-    if (!computeTravelerPaths(graph, travelers, numTravelers)) {
-        printf("Memory allocation failed\n");
-        freeTravelers(travelers, numTravelers);
-        freeGraph(graph);
-        return 1;
-    }
-
-    printTravelerPaths(travelers, numTravelers);
-
-    if (!createChildProcesses(travelers, numTravelers)) {
-        terminateChildProcesses(travelers, numTravelers);
+    if (!createChildProcesses(graph, travelers, numTravelers)) {
         freeTravelers(travelers, numTravelers);
         freeGraph(graph);
         return 1;
@@ -228,7 +232,7 @@ int main(int argc, char* argv[]) {
 
     drawGraph(graph, travelers, numTravelers);
 
-    terminateChildProcesses(travelers, numTravelers);
+    waitForChildren(travelers, numTravelers);
 
     freeTravelers(travelers, numTravelers);
     freeGraph(graph);

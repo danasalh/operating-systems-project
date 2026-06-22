@@ -7,7 +7,7 @@ SRCS = main.c graph.c dijkstra.c GUI/gui.c
 
 LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
-all: milestone4
+all: milestone5
 
 milestone4:
 	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET) $(LIBS)

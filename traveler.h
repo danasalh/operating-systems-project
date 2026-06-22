@@ -6,10 +6,17 @@
 typedef struct {
     int source;
     int destination;
+
     int* path;
     int pathLength;
     int totalWeight;
+
     pid_t pid;
+    int pipeFd[2];
+
+    int currentNode;
+    int nextNode;
+    int finished;
 } Traveler;
 
 #endif
