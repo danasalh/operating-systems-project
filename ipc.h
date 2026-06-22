@@ -9,6 +9,8 @@ typedef struct {
     int currentNode;
     int nextNode;
     int finished;
+    int waiting;
+
 } TravelerMessage;
 
 #endif

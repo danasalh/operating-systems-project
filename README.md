@@ -248,3 +248,36 @@ make milestone5
 [PID=503645] arrived at node 5 | DESTINATION
 [PID=503645] finished
 ```
+
+
+## Milestone 6
+
+### Synchronization of Node Access
+
+In this milestone, synchronization was added to ensure that no more than one traveler can occupy a node at the same time.
+
+#### Synchronization Mechanism
+
+* A semaphore is associated with each graph node.
+* Before entering a node, a traveler must acquire the node semaphore.
+* If the node is occupied, the traveler waits until the semaphore becomes available.
+* After staying in the node for one second, the traveler releases the semaphore and continues.
+
+#### IPC Mechanism
+
+* Communication between child processes and the parent process is implemented using pipes.
+* Each traveler process sends status updates to the parent.
+* The parent receives messages and updates the GUI and console logs.
+
+#### GUI Features
+
+* Travelers currently inside a node are displayed normally.
+* Travelers waiting for a busy node are displayed in a different color.
+* Console messages indicate when a traveler is waiting, enters a node, reaches the destination, or finishes execution.
+
+### Build and Run
+
+```bash
+make milestone6
+./sim tests/test8.txt
+```
