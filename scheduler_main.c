@@ -5,37 +5,37 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#include "process.h"
+#include "traveler.h"
 
 #define MAX_PROCESSES 100
 
 
-static int readProcessesFromFile(FILE* file, Process processes[])
+static int readProcessesFromFile(FILE* file, Traveler travelers[])
 {
-    int numProcesses;
+    int numTravelers;
 
-    if (fscanf(file, "%d", &numProcesses) != 1)
+    if (fscanf(file, "%d", &numTravelers) != 1)
         return -1;
 
-    if (numProcesses < 0)
+    if (numTravelers < 0)
         return -1;
 
-    for (int i = 0; i < numProcesses; i++)
+    for (int i = 0; i < numTravelers; i++)
     {
         if (fscanf(file, "%d %d %d",
-                   &processes[i].pid,
-                   &processes[i].arrival,
-                   &processes[i].burst) != 3)
+                   &travelers[i].pid,
+                   &travelers[i].arrival,
+                   &travelers[i].burst) != 3)
         {
             return -1;
         }
     }
 
-    return numProcesses;
+    return numTravelers;
 }
 
 
-void runFCFS(Process processes[], int processCount)
+void runFCFS(Traveler travelers[], int processCount)
 {
     int currentTime = 0;
 
@@ -43,18 +43,18 @@ void runFCFS(Process processes[], int processCount)
 
     for (int i = 0; i < processCount; i++)
     {
-        if (currentTime < processes[i].arrival)
+        if (currentTime < travelers[i].arrival)
         {
-            currentTime = processes[i].arrival;
+            currentTime = travelers[i].arrival;
         }
 
-        processes[i].waiting =
-            currentTime - processes[i].arrival;
+        travelers[i].waiting =
+            currentTime - travelers[i].arrival;
 
-        currentTime += processes[i].burst;
+        currentTime += travelers[i].burst;
 
-        processes[i].turnaround =
-            currentTime - processes[i].arrival;
+        travelers[i].turnaround =
+            currentTime - travelers[i].arrival;
     }
 
     printf("PID\tArrival\tBurst\tWaiting\tTurnaround\n");
@@ -62,11 +62,11 @@ void runFCFS(Process processes[], int processCount)
     for (int i = 0; i < processCount; i++)
     {
         printf("%d\t%d\t%d\t%d\t%d\n",
-               processes[i].pid,
-               processes[i].arrival,
-               processes[i].burst,
-               processes[i].waiting,
-               processes[i].turnaround);
+               travelers[i].pid,
+               travelers[i].arrival,
+               travelers[i].burst,
+               travelers[i].waiting,
+               travelers[i].turnaround);
     }
 }
 
@@ -79,19 +79,19 @@ int main(int argc, char* argv[]) {
                 argv[0]);
         return 1;
     }
-    Process processes[MAX_PROCESSES];
+    Traveler travelers[MAX_PROCESSES];
     FILE* file = fopen(argv[2], "r");
     if (file == NULL)
     {
         fprintf(stderr, "Cannot open file\n"); return 1;
     }
-    int processCount = readProcessesFromFile(file, processes);
+    int processCount = readProcessesFromFile(file, travelers);
     if (strcmp(argv[1], "fcfs") == 0) {
-        runFCFS(processes, processCount);
+        runFCFS(travelers, processCount);
     }
 
     /*else if (strcmp(argv[1], "sjf") == 0) {
      *runSJF(processes, processCount);
      *}
-     *return 0; */ }
+     *return 0; } */
 }

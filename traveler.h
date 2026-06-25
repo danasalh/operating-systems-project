@@ -19,6 +19,11 @@ typedef struct {
     int finished;
     int waiting;
 
+    /* scheduling */
+    int arrival;
+    int burst;
+    int turnaround;
+
 } Traveler;
 
 
