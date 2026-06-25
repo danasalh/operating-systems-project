@@ -44,7 +44,8 @@ operating-systems-project/
 │   ├── test1.txt
 │   ├── test2.txt
 │   ├── test3.txt
-│   └── test4.txt
+│   ├── test4.txt
+│   └── processes_test.txt
 ├── Makefile
 ├── .gitignore
 └── README.md
@@ -281,3 +282,105 @@ In this milestone, synchronization was added to ensure that no more than one tra
 make milestone6
 ./sim tests/test8.txt
 ```
+
+
+
+## Milestone 7
+
+### CPU Scheduling Algorithms
+
+In this milestone, the simulator was extended to support multiple CPU scheduling algorithms for traveler execution.
+
+The scheduling algorithm is selected through the command-line argument when running the program.
+
+Supported algorithms:
+
+- FCFS (First Come First Served)
+- SJF (Shortest Job First)
+
+The scheduler determines which traveler is allowed to execute according to the selected scheduling policy while 
+preserving the synchronization mechanisms implemented in previous milestones.
+
+### FCFS
+
+FCFS executes travelers according to their arrival order.
+
+Characteristics:
+
+- Simple queue implementation
+- Non-preemptive scheduling
+- Fair according to arrival time
+- May result in long waiting times if a long process arrives first
+
+### SJF
+
+SJF always selects the traveler with the shortest execution time (burst time).
+
+Characteristics:
+
+- Non-preemptive scheduling
+- Reduces average waiting time
+- Gives priority to shorter processes
+- Requires knowledge (or estimation) of burst times
+
+### Comparison
+
+| Feature | FCFS | SJF |
+|--------|------|------|
+| Scheduling policy | Arrival order | Shortest burst first |
+| Preemptive | No | No |
+| Average waiting time | Higher | Lower |
+| Fairness | High | Lower for long jobs |
+| Starvation | No | Possible for long processes |
+
+Compile:
+
+```bash
+make milestone7
+```
+
+Run FCFS:
+
+```bash
+./sim-schd fcfs <input_file>
+```
+
+Example:
+
+```bash
+./sim-schd fcfs tests/test9.txt
+```
+
+Run SJF:
+
+```bash
+./sim-schd sjf <input_file>
+```
+
+### Input Format
+
+The input file contains the list of processes together with their scheduling parameters.
+
+Each process includes:
+
+- Process ID
+- Arrival time
+- Burst time
+
+The scheduler reads all processes from the input file and simulates their execution according to the selected 
+scheduling algorithm.
+
+### Output
+
+During execution, the simulator prints:
+
+- Current simulation time
+- Process arrival
+- Process selection by the scheduler
+- Process execution
+- Process completion
+- Waiting time
+- Turnaround time
+
+At the end of the simulation, a summary is displayed including the average waiting time and average turnaround 
+time for the selected scheduling algorithm.
