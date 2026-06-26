@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -g
 
 TARGET = sim
 
-SRCS = main.c graph.c dijkstra.c GUI/gui.c
+SRCS = scheduler_main.c graph.c dijkstra.c GUI/gui.c
 
 LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
@@ -17,6 +17,10 @@ milestone5:
 
 milestone6:
 	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET) $(LIBS)
+
+milestone7:
+	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET) $(LIBS)
+
 
 clean:
 	rm -f $(TARGET) graph_project
