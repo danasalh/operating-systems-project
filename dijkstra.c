@@ -21,7 +21,7 @@ static int findMinDistance(int* dist, int* visited, int n) {
 
 
 int dijkstra(Graph *graph, int source, int destination, int *path, int *pathLength){
-     int n = graph->numVertices;
+    int n = graph->numVertices;
 
     int* dist = malloc(n * sizeof(int));
     int* visited = malloc(n * sizeof(int));

@@ -13,11 +13,14 @@ typedef struct {
 
     pid_t pid;
     int pipeFd[2];
+    int controlFd[2];
 
     int currentNode;
     int nextNode;
+    int requestedNode;
     int finished;
     int waiting;
+    int completed;
 
     /* scheduling */
     int arrival;

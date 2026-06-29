@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <semaphore.h>
-#include <sys/mman.h>
+#include <errno.h>
+#include <string.h>
 
 #include "graph.h"
 #include "dijkstra.h"
@@ -13,7 +13,6 @@
 #include "GUI/gui.h"
 
 #define MAX_NODES 100
-sem_t* nodeSemaphores = NULL;
 
 static Graph* readGraphFromFile(FILE* file) {
     
@@ -89,19 +88,58 @@ static Traveler* readTravelersFromFile(FILE* file, int numVertices, int* numTrav
         travelers[i].pid = -1;
         travelers[i].pipeFd[0] = -1;
         travelers[i].pipeFd[1] = -1;
+        travelers[i].controlFd[0] = -1;
+        travelers[i].controlFd[1] = -1;
         travelers[i].currentNode = source;
         travelers[i].nextNode = destination;
+        travelers[i].requestedNode = -1;
         travelers[i].finished = 0;
+        travelers[i].waiting = 0;
+        travelers[i].completed = 0;
+        travelers[i].arrival = i;
+        travelers[i].burst = INF;
+        travelers[i].turnaround = 0;
     }
 
     return travelers;
 }
 
+static int computeTravelerBursts(Graph* graph, Traveler* travelers, int numTravelers) {
+    for (int i = 0; i < numTravelers; i++) {
+        travelers[i].path = malloc(graph->numVertices * sizeof(int));
+        if (travelers[i].path == NULL) {
+            return 0;
+        }
 
+        travelers[i].pathLength = 0;
+        travelers[i].totalWeight = dijkstra(
+            graph,
+            travelers[i].source,
+            travelers[i].destination,
+            travelers[i].path,
+            &travelers[i].pathLength
+        );
 
-static void sendMessage( int fd,int index,int current, int next,int finished,int waiting){
+        if (travelers[i].totalWeight == INF) {
+            travelers[i].burst = INF;
+        } else {
+            travelers[i].burst = travelers[i].totalWeight;
+        }
+    }
+
+    return 1;
+}
+
+static void sendMessage(int fd,
+                        MessageType type,
+                        int index,
+                        int current,
+                        int next,
+                        int finished,
+                        int waiting) {
     TravelerMessage msg;
 
+    msg.type = type;
     msg.pid = getpid();
     msg.travelerIndex = index;
 
@@ -114,10 +152,26 @@ static void sendMessage( int fd,int index,int current, int next,int finished,int
     write(fd, &msg, sizeof(msg));
 }
 
-static void childProcess(Graph* graph, Traveler traveler, int index, int writeFd) {
+static int waitForGrant(int readFd) {
+    TravelerCommand command;
+    ssize_t bytesRead;
+
+    do {
+        bytesRead = read(readFd, &command, sizeof(command));
+    } while (bytesRead == -1 && errno == EINTR);
+
+    return bytesRead == sizeof(command) && command.granted;
+}
+
+static void childProcess(Graph* graph,
+                         Traveler traveler,
+                         int index,
+                         int writeFd,
+                         int readFd) {
     int* path = malloc(graph->numVertices * sizeof(int));
     if (path == NULL) {
         close(writeFd);
+        close(readFd);
         exit(1);
     }
 
@@ -131,35 +185,39 @@ static void childProcess(Graph* graph, Traveler traveler, int index, int writeFd
     );
 
     if (totalWeight == INF || pathLength == 0) {
-        sendMessage(writeFd, index, traveler.source, -1, 1, 0);
+        sendMessage(writeFd, MSG_FINISHED, index, traveler.source, -1, 1, 0);
 
         free(path);
         close(writeFd);
+        close(readFd);
         exit(0);
     }
 
     for (int i = 0; i < pathLength; i++) {
-
         int current = path[i];
         int next = (i < pathLength - 1) ? path[i + 1] : -1;
         int finished = (i == pathLength - 1);
 
-        if (sem_trywait(&nodeSemaphores[current]) != 0) {
-
-            sendMessage(writeFd,index,current,next,0,1 );
-
-            sem_wait(&nodeSemaphores[current]);
+        sendMessage(writeFd, MSG_REQUEST_NODE, index, current, next, finished, 1);
+        if (!waitForGrant(readFd)) {
+            free(path);
+            close(writeFd);
+            close(readFd);
+            exit(1);
         }
 
-        sendMessage(writeFd,index,current, next, finished, 0);
+        sendMessage(writeFd, MSG_ARRIVED_NODE, index, current, next, finished, 0);
 
         sleep(1);
 
-        sem_post(&nodeSemaphores[current]);
+        sendMessage(writeFd, MSG_LEFT_NODE, index, current, next, finished, 0);
     }
+
+    sendMessage(writeFd, MSG_FINISHED, index, traveler.destination, -1, 1, 0);
 
     free(path);
     close(writeFd);
+    close(readFd);
     exit(0);
 }
 
@@ -167,6 +225,13 @@ static int createChildProcesses(Graph* graph, Traveler* travelers, int numTravel
     for (int i = 0; i < numTravelers; i++) {
         if (pipe(travelers[i].pipeFd) == -1) {
             perror("pipe failed");
+            return 0;
+        }
+
+        if (pipe(travelers[i].controlFd) == -1) {
+            perror("control pipe failed");
+            close(travelers[i].pipeFd[0]);
+            close(travelers[i].pipeFd[1]);
             return 0;
         }
 
@@ -179,12 +244,18 @@ static int createChildProcesses(Graph* graph, Traveler* travelers, int numTravel
 
         if (pid == 0) {
             close(travelers[i].pipeFd[0]);
-            childProcess(graph, travelers[i], i, travelers[i].pipeFd[1]);
+            close(travelers[i].controlFd[1]);
+            childProcess(graph,
+                         travelers[i],
+                         i,
+                         travelers[i].pipeFd[1],
+                         travelers[i].controlFd[0]);
         }
 
         travelers[i].pid = pid;
 
         close(travelers[i].pipeFd[1]);
+        close(travelers[i].controlFd[0]);
 
         int flags = fcntl(travelers[i].pipeFd[0], F_GETFL, 0);
         fcntl(travelers[i].pipeFd[0], F_SETFL, flags | O_NONBLOCK);
@@ -212,19 +283,49 @@ static void freeTravelers(Traveler* travelers, int numTravelers) {
         if (travelers[i].pipeFd[0] != -1) {
             close(travelers[i].pipeFd[0]);
         }
+
+        if (travelers[i].controlFd[1] != -1) {
+            close(travelers[i].controlFd[1]);
+        }
     }
 
     free(travelers);
 }
 
-
-int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <input_file>\n", argv[0]);
+static int parseScheduler(const char* name, SchedulerAlgorithm* scheduler) {
+    if (strcmp(name, "fcfs") == 0) {
+        *scheduler = SCHEDULER_FCFS;
         return 1;
     }
 
-    FILE* file = fopen(argv[1], "r");
+    if (strcmp(name, "sjf") == 0) {
+        *scheduler = SCHEDULER_SJF;
+        return 1;
+    }
+
+    return 0;
+}
+
+
+int main(int argc, char* argv[]) {
+    const char* inputFileName;
+    SchedulerAlgorithm scheduler = SCHEDULER_FCFS;
+
+    if (argc == 2) {
+        inputFileName = argv[1];
+    } else if (argc == 4 && strcmp(argv[1], "-schd") == 0) {
+        if (!parseScheduler(argv[2], &scheduler)) {
+            printf("Usage: %s -schd <fcfs|sjf> <input_file>\n", argv[0]);
+            return 1;
+        }
+
+        inputFileName = argv[3];
+    } else {
+        printf("Usage: %s -schd <fcfs|sjf> <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    FILE* file = fopen(inputFileName, "r");
     if (file == NULL) {
         printf("Error opening file\n");
         return 1;
@@ -237,35 +338,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    nodeSemaphores = mmap(
-        NULL,
-        graph->numVertices * sizeof(sem_t),
-        PROT_READ | PROT_WRITE,
-        MAP_SHARED | MAP_ANONYMOUS,
-        -1,
-        0
-    );
-
-    if (nodeSemaphores == MAP_FAILED) {
-        printf("Semaphore shared memory failed\n");
-        freeGraph(graph);
-        fclose(file);
-        return 1;
-    }
-
-    for (int i = 0; i < graph->numVertices; i++) {
-        sem_init(&nodeSemaphores[i], 1, 1);
-    }
-
     int numTravelers = 0;
     Traveler* travelers = readTravelersFromFile(file, graph->numVertices, &numTravelers);
     if (travelers == NULL) {
         printf("Invalid input\n");
-
-        for (int i = 0; i < graph->numVertices; i++) {
-            sem_destroy(&nodeSemaphores[i]);
-        }
-        munmap(nodeSemaphores, graph->numVertices * sizeof(sem_t));
 
         freeGraph(graph);
         fclose(file);
@@ -274,31 +350,25 @@ int main(int argc, char* argv[]) {
 
     fclose(file);
 
+    if (!computeTravelerBursts(graph, travelers, numTravelers)) {
+        printf("Memory allocation failed\n");
+        freeTravelers(travelers, numTravelers);
+        freeGraph(graph);
+        return 1;
+    }
+
     if (!createChildProcesses(graph, travelers, numTravelers)) {
         freeTravelers(travelers, numTravelers);
-
-        for (int i = 0; i < graph->numVertices; i++) {
-            sem_destroy(&nodeSemaphores[i]);
-        }
-        munmap(nodeSemaphores, graph->numVertices * sizeof(sem_t));
 
         freeGraph(graph);
         return 1;
     }
 
-    drawGraph(graph, travelers, numTravelers);
+    drawGraph(graph, travelers, numTravelers, scheduler);
 
     waitForChildren(travelers, numTravelers);
 
     freeTravelers(travelers, numTravelers);
-
-    int n = graph->numVertices;
-
-    for (int i = 0; i < n; i++) {
-        sem_destroy(&nodeSemaphores[i]);
-    }
-
-    munmap(nodeSemaphores, n * sizeof(sem_t));
 
     freeGraph(graph);
 

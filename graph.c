@@ -44,8 +44,6 @@ Graph* createGraph(int numVertices, int numEdges) {
     }
 
     return graph;
-
-
 }
 
 

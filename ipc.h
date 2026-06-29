@@ -3,7 +3,15 @@
 
 #include <sys/types.h>
 
+typedef enum {
+    MSG_REQUEST_NODE,
+    MSG_ARRIVED_NODE,
+    MSG_LEFT_NODE,
+    MSG_FINISHED
+} MessageType;
+
 typedef struct {
+    MessageType type;
     pid_t pid;
     int travelerIndex;
     int currentNode;
@@ -12,5 +20,10 @@ typedef struct {
     int waiting;
 
 } TravelerMessage;
+
+typedef struct {
+    int granted;
+    int node;
+} TravelerCommand;
 
 #endif

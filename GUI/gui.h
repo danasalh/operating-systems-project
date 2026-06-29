@@ -4,6 +4,14 @@
 #include "../graph.h"
 #include "../traveler.h"
 
-void drawGraph(Graph* graph, Traveler* travelers, int numTravelers);
+typedef enum {
+    SCHEDULER_FCFS,
+    SCHEDULER_SJF
+} SchedulerAlgorithm;
+
+void drawGraph(Graph* graph,
+               Traveler* travelers,
+               int numTravelers,
+               SchedulerAlgorithm scheduler);
 
 #endif

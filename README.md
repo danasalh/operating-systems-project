@@ -289,7 +289,7 @@ make milestone6
 
 ### CPU Scheduling Algorithms
 
-In this milestone, the simulator was extended to support multiple CPU scheduling algorithms for traveler execution.
+In this milestone, the simulator was extended to support multiple scheduling algorithms for entering graph nodes.
 
 The scheduling algorithm is selected through the command-line argument when running the program.
 
@@ -298,12 +298,12 @@ Supported algorithms:
 - FCFS (First Come First Served)
 - SJF (Shortest Job First)
 
-The scheduler determines which traveler is allowed to execute according to the selected scheduling policy while 
-preserving the synchronization mechanisms implemented in previous milestones.
+The parent process manages a waiting queue for each node. When several travelers are waiting to enter the same
+node, the selected scheduler decides which child process receives permission to enter next.
 
 ### FCFS
 
-FCFS executes travelers according to their arrival order.
+FCFS allows travelers to enter a busy node according to the order in which their requests arrived.
 
 Characteristics:
 
@@ -314,7 +314,8 @@ Characteristics:
 
 ### SJF
 
-SJF always selects the traveler with the shortest execution time (burst time).
+SJF selects the waiting traveler with the shortest burst value. In this implementation, the burst value is the
+total shortest-path weight computed for that traveler.
 
 Characteristics:
 
@@ -342,45 +343,57 @@ make milestone7
 Run FCFS:
 
 ```bash
-./sim-schd fcfs <input_file>
+./sim -schd fcfs <input_file>
 ```
 
 Example:
 
 ```bash
-./sim-schd fcfs tests/test9.txt
+./sim -schd fcfs tests/test9.txt
 ```
 
 Run SJF:
 
 ```bash
-./sim-schd sjf <input_file>
+./sim -schd sjf tests/test9.txt
 ```
 
 ### Input Format
 
-The input file contains the list of processes together with their scheduling parameters.
+The input format is the same graph/travelers format used in the previous milestones:
 
-Each process includes:
+```text
+9 8
+0 4 1
+1 4 1
+2 4 1
+3 4 1
+4 5 1
+4 6 4
+6 7 4
+4 8 2
 
-- Process ID
-- Arrival time
-- Burst time
+4
+0 5
+1 7
+2 5
+3 8
+```
 
-The scheduler reads all processes from the input file and simulates their execution according to the selected 
-scheduling algorithm.
+The first section defines the graph. The second section defines the number of travelers and each traveler's
+source and destination.
 
 ### Output
 
 During execution, the simulator prints:
 
-- Current simulation time
-- Process arrival
-- Process selection by the scheduler
-- Process execution
-- Process completion
-- Waiting time
-- Turnaround time
+- The selected scheduling algorithm in the GUI
+- Arrival logs when a traveler enters a node
+- Destination logs when a traveler reaches its final node
+- Finish logs when a child process completes
 
-At the end of the simulation, a summary is displayed including the average waiting time and average turnaround 
-time for the selected scheduling algorithm.
+### Comparison
+
+FCFS keeps the waiting order simple and predictable, so a traveler that requests a node first will enter first.
+SJF can reduce waiting time for shorter routes because a short traveler may enter before a longer traveler that is
+also waiting for the same node. This can make short travelers finish earlier, but it is less fair to long routes.
