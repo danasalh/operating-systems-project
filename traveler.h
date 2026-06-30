@@ -12,22 +12,18 @@ typedef struct {
     int totalWeight;
 
     pid_t pid;
-    int pipeFd[2];
+
+    int pipeFd[2];   // child -> parent
+    int grantFd[2];  // parent -> child
 
     int currentNode;
     int nextNode;
     int finished;
     int waiting;
 
-
-    /* scheduling */
     int arrival;
     int burst;
     int turnaround;
-
-
 } Traveler;
-
-
 
 #endif
