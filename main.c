@@ -102,7 +102,7 @@ static void sendMessage(int fd, int index, int current, int next, int finished) 
     write(fd, &msg, sizeof(TravelerMessage));
 }
 
-static void childProcess(Graph* graph, Traveler traveler, int index, int writeFd) {
+static void childProcess(Graph* graph,Traveler traveler,int index,  int writeFd,  int ackFd) { //add int ackFd to child proess
     int* path = malloc(graph->numVertices * sizeof(int));
     if (path == NULL) {
         close(writeFd);
@@ -130,22 +130,35 @@ static void childProcess(Graph* graph, Traveler traveler, int index, int writeFd
         int next = (i < pathLength - 1) ? path[i + 1] : -1;
         int finished = (i == pathLength - 1);
 
-        sendMessage(writeFd, index, current, next, finished);
+       sendMessage(writeFd, index, current, next, finished);
 
-        sleep(1);
+      char ack;
+
+      read(ackFd, &ack, sizeof(ack));
+
+sleep(1);
     }
-
     free(path);
-    close(writeFd);
+
+   close(writeFd);
+
+    close(ackFd);
+
+
     exit(0);
 }
 
 static int createChildProcesses(Graph* graph, Traveler* travelers, int numTravelers) {
     for (int i = 0; i < numTravelers; i++) {
-        if (pipe(travelers[i].pipeFd) == -1) {
-            perror("pipe failed");
-            return 0;
-        }
+       if (pipe(travelers[i].pipeFd) == -1) {
+    perror("pipe failed");
+    return 0;
+  }
+
+  if (pipe(travelers[i].ackPipeFd) == -1) {
+    perror("pipe failed");
+    return 0;
+   }
 
         pid_t pid = fork();
 
@@ -155,13 +168,25 @@ static int createChildProcesses(Graph* graph, Traveler* travelers, int numTravel
         }
 
         if (pid == 0) {
-            close(travelers[i].pipeFd[0]);
-            childProcess(graph, travelers[i], i, travelers[i].pipeFd[1]);
-        }
 
-        travelers[i].pid = pid;
+       close(travelers[i].pipeFd[0]);      // the child read
 
-        close(travelers[i].pipeFd[1]);
+        close(travelers[i].ackPipeFd[1]);    // ack 
+
+    childProcess(graph,
+                 travelers[i],
+                 i,
+                 travelers[i].pipeFd[1],
+                 travelers[i].ackPipeFd[0]);
+} 
+    if (pid>0){
+       travelers[i].pid = pid;
+ 
+        close(travelers[i].pipeFd[1]);       
+
+        close(travelers[i].ackPipeFd[0]);  
+}
+
 
         int flags = fcntl(travelers[i].pipeFd[0], F_GETFL, 0);
         fcntl(travelers[i].pipeFd[0], F_SETFL, flags | O_NONBLOCK);

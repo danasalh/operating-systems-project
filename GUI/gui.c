@@ -110,6 +110,10 @@ static void readTravelerMessages(Traveler* travelers, int numTravelers) {
 
             fflush(stdout);
         }
+        // send ack to the child 
+          char ack = 'A';
+    write(travelers[i].ackPipeFd[1], &ack, sizeof(ack));
+}
     }
 }
 

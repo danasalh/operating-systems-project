@@ -12,7 +12,9 @@ typedef struct {
     int totalWeight;
 
     pid_t pid;
-    int pipeFd[2];
+    
+    int pipeFd[2];      // Child -> Parent
+int ackPipeFd[2];   // Parent -> Child
 
     int currentNode;
     int nextNode;
